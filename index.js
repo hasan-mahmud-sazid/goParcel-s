@@ -3,6 +3,10 @@ const cors = require('cors');
 const app = express()
 require('dotenv').config();
 
+// STRIPE ->
+const stripe = require('stripe')(process.env.STRIPE_SECRET);
+
+
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 const port = process.env.PORT || 3000
@@ -39,11 +43,11 @@ async function run() {
         app.get('/parcels', async (req, res) => {
             const query = {}
             const { email } = req.query;
-            if(email) {
+            if (email) {
                 query.senderEmail = email;
             }
 
-            const options = { sort: { createdAt: -1}}
+            const options = { sort: { createdAt: -1 } }
 
             const cursor = parcelsCollection.find(query, options);
             const result = await cursor.toArray();
@@ -51,14 +55,14 @@ async function run() {
 
         })
 
-        app.get('/parcels/:id', async(req, res) => {
+        app.get('/parcels/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) }
-            const result = await parcelsCollection.findOne( query );
-            res.send( result );
+            const result = await parcelsCollection.findOne(query);
+            res.send(result);
         })
 
-        app.post('/parcels', async(req, res) => {
+        app.post('/parcels', async (req, res) => {
             const parcel = req.body;
 
             // PARCEL CREATED TIME -->
@@ -67,22 +71,48 @@ async function run() {
             res.send(result);
         })
 
-        app.delete('/parcels/:id', async( req, res) => {
+        app.delete('/parcels/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) }
 
             const result = await parcelsCollection.deleteOne(query);
-            res.send( result );
+            res.send(result);
+        })
+
+        // PAYMENT RELATED API'S -->
+        app.post('create-checkout-session', async (req, res) => {
+            const paymentInfo = req.body;
+
+            const session = await stripe.checkout.session.create({
+                line_items: [
+                    {
+                        // Provide the exact Price ID (for example, price_1234) of the product you want to sell 
+
+                        price_data: {
+                            currency: 'USD',
+                            unit_amount: 1500,
+                            product_data :{
+                                name : paymentInfo.parcelName,
+                            }
+                            
+                        },
+                        quantity: 1,
+                    },
+                ],
+                customer_email : paymentInfo.senderEmail,
+                mode: 'payment',
+                success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success`,
+            })
         })
 
 
-        // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    } finally {
-        // Ensures that the client will close when you finish/error
-        // await client.close();
-    }
+    // Send a ping to confirm a successful connection
+    await client.db("admin").command({ ping: 1 });
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+} finally {
+    // Ensures that the client will close when you finish/error
+    // await client.close();
+}
 }
 run().catch(console.dir);
 
