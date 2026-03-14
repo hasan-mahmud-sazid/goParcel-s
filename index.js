@@ -11,6 +11,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 const port = process.env.PORT || 3000
 const crypto = require("crypto");
+const { send } = require('process');
 
 function generateTrackingId() {
     const prefix = "PRCL";
@@ -155,10 +156,25 @@ async function run() {
         // CHECK -->
         app.patch('/payment-success', async (req, res) => {
             const sessionId = req.query.session_id;
-
             const session = await stripe.checkout.sessions.retrieve(sessionId);
 
-            console.log('Session Retrieve : ', session);
+            // console.log('Session Retrieve : ', session);
+
+            const transactionId = session.payment_intent;
+            const query = { transactionId: transactionId } 
+
+            const paymentExists = await paymentCollection.findOne( query );
+            console.log(paymentExists);
+
+            if ( paymentExists ) {
+                
+                return res.send({ 
+                    message: 'Already Exist', 
+                    transactionId,
+                    trackingId: paymentExists.trackingId
+                })
+            }
+
             const trackingId = generateTrackingId()
 
             if (session.payment_status === 'paid') {
@@ -180,7 +196,8 @@ async function run() {
                     parcelName: session.metadata.parcelName,
                     transactionId: session.payment_intent,
                     paymentStatus: session.payment_status,
-                    paidAt: new Date()
+                    paidAt: new Date(),
+                    trackingId: trackingId
                     
                 }
 
@@ -199,6 +216,18 @@ async function run() {
             }
 
             res.send({ success: false })
+        })
+
+        // PAYMENT RELATED API'S -->
+        app.get('/payments', async (req, res) => {
+            const email = req.query.email;
+            const query = {}
+            if(email) {
+                query.customerEmail = email
+            }
+            const cursor = paymentCollection.find(query);
+            const result = await cursor.toArray();
+            res.send(result)
         })
 
         // Send a ping to confirm a successful connection
