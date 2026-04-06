@@ -114,7 +114,6 @@ async function run() {
     });
 
     // PAYMENT RELATED API'S -->
-    // CREATE NEW ->
     app.post("/payment-checkout-session", async (req, res) => {
       const paymentInfo = req.body;
       const amount = parseInt(paymentInfo.cost) * 100;
@@ -258,10 +257,6 @@ async function run() {
     app.post("/parcels", verifyToken, async (req, res) => {
       const parcel = req.body;
 
-      // ব্যাকএন্ডে প্রাইস ভ্যালিডেশন (ঐচ্ছিক কিন্তু জরুরি)
-      // const calculatedPrice = calculateBackendPrice(parcel.weight);
-      // if (parcel.price !== calculatedPrice) return res.status(400)...
-
       const result = await parcelsCollection.insertOne(parcel);
       res.send(result);
     });
@@ -272,8 +267,6 @@ async function run() {
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
   } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
   }
 }
 run().catch(console.dir);
